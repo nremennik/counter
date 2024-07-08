@@ -6,18 +6,28 @@
 #include "driver/touch_sensor.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "esp_wifi.h"
+#include "driver/gpio.h"
+#include "driver/rtc_io.h"
 
 void IRAM_ATTR handleReset(void);
-void IRAM_ATTR handleSensor(void);
-void IRAM_ATTR handleDistanceSensor(void);
+void IRAM_ATTR handleSleep(void);
+
+#define BTN_RESET 17
+#define BTN_SLEEP 5
 
 volatile int32_t counter = 0;
+volatile boolean doSleep = false;
 
 nvs_handle_t hSensorValue;
 
-void initUi();
-int updateUi();
-void initDistanceSensor();
+void initUi(void);
+int updateUi(void);
+void offUi(void);
+void onUi(void);
+
+void initDistanceSensor(void);
+void clearIntr(void);
 
 void setup()
 {
@@ -48,8 +58,10 @@ void setup()
   // touch_pad_config(TOUCH_PAD_NUM0, 0);
   // touch_pad_filter_start(10);
 
-  pinMode(17, INPUT_PULLUP);
-  attachInterrupt(17, handleReset, FALLING);
+  pinMode(BTN_RESET, INPUT_PULLUP);
+  attachInterrupt(BTN_RESET, handleReset, FALLING);
+  pinMode(BTN_SLEEP, INPUT_PULLUP);
+  attachInterrupt(BTN_SLEEP, handleSleep, FALLING);
 
   initUi();
 
@@ -72,6 +84,21 @@ void loop()
     savedCounter = counter;
   }
 
+  if (doSleep)
+  {
+    Serial.printf("%ld) Going to sleep now\n", millis());
+    delay(100);
+    offUi();
+    // esp_wifi_stop();
+    // rtc_gpio_pullup_en(GPIO_NUM_13);
+    // clearIntr();
+    // esp_deep_sleep_start();
+    esp_light_sleep_start();
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    Serial.printf("%ld) Woke up: %d\n", millis(), (int)cause);
+    onUi();
+  }
+
   delay(updateUi());
 }
 
@@ -80,3 +107,7 @@ void IRAM_ATTR handleReset(void)
   counter = 0;
 }
 
+void IRAM_ATTR handleSleep(void)
+{
+  doSleep = true;
+}

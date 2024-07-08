@@ -1,20 +1,23 @@
 #include <Arduino.h>
 #include <Adafruit_VL53L0X.h>
+#include "driver/gpio.h"
+#include "driver/rtc_io.h"
 
 TaskHandle_t hMeasureTask;
 void measureTask(void *param);
-void IRAM_ATTR handleDistanceSensor(void);
+void handleDistanceSensor(void);
 
 #define DISTANCE_THRESHOLD_MM 60
 #define DISTANCE_MEASUREMENT_AREA_MM 120
-#define DISTANCE_SENSOR_INTR 5
+#define DISTANCE_SENSOR_INTR 13
 #define DISTANCE_SENSOR_RESET 18
 
 Adafruit_VL53L0X *distanceSensor;
 
 extern volatile int32_t counter;
+extern volatile boolean doSleep;
 
-void initDistanceSensor()
+void initDistanceSensor(void)
 {
     distanceSensor = new Adafruit_VL53L0X();
 
@@ -38,6 +41,9 @@ void initDistanceSensor()
     distanceSensor->setInterruptThresholds(50, DISTANCE_MEASUREMENT_AREA_MM);
     distanceSensor->setDeviceMode(VL53L0X_DEVICEMODE_CONTINUOUS_RANGING, false);
     distanceSensor->startMeasurement();
+    // esp_sleep_enable_ext0_wakeup((gpio_num_t)DISTANCE_SENSOR_INTR, 0);
+    // gpio_wakeup_enable((gpio_num_t)DISTANCE_SENSOR_INTR, GPIO_INTR_LOW_LEVEL);
+    // esp_sleep_enable_gpio_wakeup();
 }
 
 volatile boolean interruptTriggered = false;
@@ -68,9 +74,15 @@ void measureTask(void *param)
                     lastDistance = mData.RangeMilliMeter;
                 }
                 lastDistance = mData.RangeMilliMeter;
+                doSleep = false;
                 // Serial.printf("Distance is %d mm, counter=%d\n", mData.RangeMilliMeter, counter);
             }
             distanceSensor->clearInterruptMask(false);
         }
     }
+}
+
+void clearIntr(void)
+{
+    distanceSensor->clearInterruptMask(false);
 }
