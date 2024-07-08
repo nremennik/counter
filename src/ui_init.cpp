@@ -39,7 +39,7 @@ FrameCallback frames[] =
         frame2};
 int framesCount = 1;
 
-void initUi()
+void initUi(void)
 {
     display = new SSD1306Wire(0x3c, -1, -1, GEOMETRY_128_64, I2C_ONE, 400000);
     ui = new OLEDDisplayUi(display);
@@ -59,7 +59,18 @@ void initUi()
     ui->update();
 }
 
-int updateUi()
+int updateUi(void)
 {
-    return (ui->update());
+    int timeout = ui->update();
+    return (timeout <= 0 ? 1 : timeout);
+}
+
+void offUi(void)
+{
+    display->displayOff();
+}
+
+void onUi(void)
+{
+    display->displayOn();
 }
